@@ -140,8 +140,13 @@ func strictSchemaViolations(value any, path string) []string {
 // verbatim, which is the v1.106.0 review failure against openai-codex
 // ("At schema path /, additionalProperties must be false"). Every schema the
 // steps hand to RunOpts.JSONSchema must therefore declare a strict-valid tool.
+//
+// Keep this test sequential: it writes an executable fixture and execs it, and
+// a concurrent fork can briefly inherit the fixture's writable fd, making that
+// exec fail with ETXTBSY (see reap_unix_test.go). Pi treats a failed --version
+// probe as "prompt-inlined schema", so the run then never copies the extension
+// and this test fails on a missing file rather than on anything it asserts.
 func TestPiStrictDeclarationSatisfiesTheStrictFunctionContract(t *testing.T) {
-	t.Parallel()
 	schemas := map[string]json.RawMessage{
 		"review":                reviewSchemaForFinalize(false),
 		"review finalize":       reviewSchemaForFinalize(true),
@@ -173,8 +178,9 @@ func TestPiStrictDeclarationSatisfiesTheStrictFunctionContract(t *testing.T) {
 	}
 }
 
+// Keep this test sequential for the same executable-fixture reason as
+// TestPiStrictDeclarationSatisfiesTheStrictFunctionContract.
 func TestPiStrictDeclarationLeavesSummaryLengthToPostValidation(t *testing.T) {
-	t.Parallel()
 	overLong, err := json.Marshal(strings.Repeat("a", config.MaxFixMessageSummaryBytes+1))
 	if err != nil {
 		t.Fatal(err)
